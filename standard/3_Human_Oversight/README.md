@@ -395,6 +395,17 @@ Autonomous penetration testing systems MUST implement an immediate kill switch m
    - Kill triggered by highest escalation (legal, compliance, out-of-scope)
    - Different from manual kill; has automatic notification/logging
 
+**Control Channel Delivery Requirements:**
+
+- Each operator-initiated kill channel MUST deliver the activation instruction to the enforcement
+  point under the deployment configuration in which the system operates, not only during an isolated
+  exercise of the mechanism.
+- An issued kill instruction MUST produce an independently observable acknowledgement or explicit
+  delivery failure within the Phase 1 window defined in APTS-SC-009, and an independently observable
+  enforcement result or explicit enforcement failure within the Phase 2 window.
+- Where neither is observed within the applicable window, the platform MUST notify the operator and
+  apply default-safe handling. An unacknowledged kill instruction MUST NOT be treated as delivered.
+  
 **State Dump Requirements:**
 
 - Dump MUST include all authenticated sessions (can identify what systems were compromised)
@@ -421,6 +432,8 @@ Autonomous penetration testing systems MUST implement an immediate kill switch m
 6. **Forensic recovery test**: From state dump, reconstruct tool state and verify accuracy
 7. **Automatic kill test**: Trigger automatic kill condition (for example, PII access outside scope); observe automatic termination
 8. **State preservation test**: Verify complete system state at time of kill activation is preserved and available for forensic investigation
+9. **End-to-end delivery test**: Exercise each configured operator-initiated kill channel from the authorized operator interface through to the enforcement point under the deployment configuration being evaluated, traversing any applicable network, mount, namespace, container, privilege-separation, or IPC boundaries; verify the instruction is received and enforced within the Phase 1 and Phase 2 windows defined in APTS-SC-009
+10. **Delivery acknowledgement and failure test**: Verify that an issued kill instruction produces an independently observable acknowledgement, enforcement result, or explicit delivery failure within the applicable window, and that the absence of all three triggers operator notification and default-safe handling
 
 ---
 
