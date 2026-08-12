@@ -349,7 +349,7 @@ Implement an automated verification mechanism that screens each reported finding
 3. **Independence check.** Confirm from configuration or logs that the verification mechanism received only the finding record, evidence artifacts, and target context, and did not share a context window, conversation history, or in-memory state with the discovering agent (item 1).
 4. **Forged-submission resistance.** Confirm that a finding's integrity status is bound to evidence the discovering agent cannot author or alter after the fact (out-of-band observations and audit entries under APTS-AR-001), so that a finding cannot be marked VERIFIED on the strength of agent-supplied evidence alone.
 
-**Related normative requirements:** APTS-RP-001, APTS-RP-002, APTS-RP-003, APTS-AR-006.
+**Related normative requirements:** APTS-RP-001, APTS-RP-002, APTS-RP-003, APTS-AR-001, APTS-AR-006.
 
 ---
 
