@@ -34,7 +34,7 @@ APTS is not a testing methodology. It complements PTES, OWASP WSTG, and OSSTMM b
 - **Tier 2 (Verified)**: 85 additional (157 cumulative). Full transparency, tamper-proof audit trails, and independently verifiable findings.
 - **Tier 3 (Comprehensive)**: 16 additional (173 cumulative). Highest assurance for critical infrastructure and L4 autonomous operations.
 
-Nineteen additional advisory practices live exclusively in the [Advisory Requirements appendix](./standard/appendix/Advisory_Requirements.md) under the `APTS-<DOMAIN>-A0x` identifier pattern. Advisory practices are not counted toward any tier and do not affect conformance.
+Twenty additional advisory practices live exclusively in the [Advisory Requirements appendix](./standard/appendix/Advisory_Requirements.md) under the `APTS-<DOMAIN>-A0x` identifier pattern. Advisory practices are not counted toward any tier and do not affect conformance.
 
 APTS has no certification body, no mandatory third-party audit, and no fee. Platforms are assessed against the requirements and conformance is documented. The standard does not prescribe who performs the assessment; internal self-assessment, independent internal review, and external third-party assessment are all valid approaches, and the choice is left to the reader.
 

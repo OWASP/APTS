@@ -1,6 +1,6 @@
 # OWASP Autonomous Penetration Testing Standard
 
-This is the full OWASP Autonomous Penetration Testing Standard. It defines 173 tier-required requirements across 8 domains (plus 19 advisory practices in the [Advisory Requirements appendix](appendix/Advisory_Requirements.md)) that autonomous penetration testing platforms must meet to operate safely, transparently, and within defined boundaries, whether delivered by vendors, operated as a service, or built in-house by enterprise security teams.
+This is the full OWASP Autonomous Penetration Testing Standard. It defines 173 tier-required requirements across 8 domains (plus 20 advisory practices in the [Advisory Requirements appendix](appendix/Advisory_Requirements.md)) that autonomous penetration testing platforms must meet to operate safely, transparently, and within defined boundaries, whether delivered by vendors, operated as a service, or built in-house by enterprise security teams.
 
 ## Getting Started
 

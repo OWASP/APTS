@@ -440,6 +440,87 @@ Where reasoning traces are available, scan eval-side transcripts for evaluation-
 
 ---
 
+### APTS-MR-A04: Final LLM Output Sanitization and Downstream Context Isolation
+
+> This section provides implementation guidance for the advisory practice [APTS-MR-A04](../appendix/Advisory_Requirements.md#apts-mr-a04-final-llm-output-sanitization-and-downstream-context-isolation-advisory). It is not required for conformance at any tier.
+
+**Implementation:** Implement a context-aware output validation and encoding layer at the platform's emission and execution boundaries. The layer intercepts all LLM-generated artifacts—findings, PoC scripts, evidence bundles, exported telemetry, web dashboard views, integration webhooks (e.g., Jira, Slack, SIEM), and internal pipeline channels (scoring, evidence, audit)—before they reach execution engines, presentation DOMs, or external sinks.
+
+**Architecture Pattern: Context-Specific Output Validation & Parameterized Dispatch**
+
+The implementation separates output handling into two complementary mechanisms: schema-enforced contextual encoding for data deliverables, and parameterized argument vector (`argv`) validation for executable deliverables.
+
+```python
+import html
+from urllib.parse import urlparse
+from pydantic import BaseModel, field_validator
+import subprocess
+import shlex
+
+# 1. Data Deliverable Validation (Reporting, Exports, Webhooks)
+class FindingExportPayload(BaseModel):
+    title: str
+    description: str
+    target_url: str
+    severity: str
+
+    @field_validator("title", "description")
+    @classmethod
+    def escape_html_entities(cls, v: str) -> str:
+        """Prevent Stored XSS in customer reporting dashboards and HTML/PDF exports."""
+        return html.escape(v, quote=True)
+
+    @field_validator("target_url")
+    @classmethod
+    def validate_egress_url(cls, v: str) -> str:
+        """Prevent SSRF / Cloud Metadata endpoint poisoning in integrations and exports."""
+        parsed = urlparse(v)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError(f"Disallowed URL scheme: {parsed.scheme}")
+        hostname = (parsed.hostname or "").lower()
+        if hostname in ["169.254.169.254", "localhost", "127.0.0.1"] or hostname.startswith("10.") or hostname.startswith("192.168."):
+            raise ValueError("Forbidden internal or metadata egress destination")
+        return v
+
+# 2. Executable Deliverable Validation (Synthesized PoC Commands)
+def dispatch_synthesized_poc(
+    tool_binary: str,
+    args: list[str],
+    audit_logger
+) -> subprocess.CompletedProcess:
+    """
+    Execute synthesized PoC actions using array-based argument vectors.
+    Never pass composed raw strings to sh -c or system().
+    """
+    # Enforce tool binary allowlist (backstopped by APTS-SC-020)
+    ALLOWED_BINARIES = {"/usr/bin/curl", "/usr/bin/nmap", "/usr/bin/dig"}
+    if tool_binary not in ALLOWED_BINARIES:
+        audit_logger.warning("poc_dispatch_blocked", extra={"tool": tool_binary, "reason": "unauthorized binary"})
+        raise PermissionError(f"Unauthorized tool binary: {tool_binary}")
+
+    # Parameterized execution: args are distinct array elements, preventing shell metacharacter expansion
+    return subprocess.run(
+        [tool_binary, *args],
+        capture_output=True,
+        text=True,
+        shell=False,  # Enforce no shell interpolation
+        timeout=30,
+    )
+```
+
+**Key Considerations:**
+- **Execution boundary takes precedence:** For synthesized PoC code, validation must occur at the final execution dispatch boundary. Metacharacter stripping or prompt-level instructions ("only generate safe commands") fail open against determined prompt injection. Array-based argument vectors (`shell=False`, distinct `argv` parameters) ensure shell metacharacters like `;`, `&`, `|`, `$()`, or `` ` `` cannot trigger command chaining.
+- **Context determines encoding:** A string that is safe for JSON export can be lethal when injected into an unescaped HTML report template or a markdown renderer supporting raw HTML. Apply encoding specific to the destination sink at the boundary where the sink is invoked.
+- **Isolate internal sinks:** Emitted data also flows backward into platform internals (finding scoring pipelines, structured audit trails, evidence stores). Validate and sanitize LLM output before passing it to internal sinks to prevent audit log injection (e.g., CRLF log splitting) or metric manipulation.
+- **Sandboxed presentation frames:** Web UI dashboards should render findings and PoC narratives within sandboxed frames (e.g., `iframe` with `sandbox="allow-same-origin"` or strict Content Security Policy disabling inline script execution).
+
+**Common Pitfalls:**
+- **Relying on upstream sanitization for executable code:** Assuming that because MR-002 sanitized input data, the LLM's generated PoC script is safe to pass to `os.system()` or `sh -c`. The model itself can synthesize arbitrary payloads from indirect cues.
+- **Decoding after sanitizing:** Performing HTML entity encoding and subsequently running a formatting pass or template engine that decodes HTML entities before rendering.
+- **Overlooking webhook and export SSRF:** Exporting findings to customer issue trackers (Jira, GitHub Issues, Slack) where an LLM-injected webhook URL or markdown image tag targets internal services (`http://169.254.169.254/latest/meta-data/` or internal admin endpoints).
+
+---
+
 ## Implementation Roadmap
 
 **Tier 1 (implement before any autonomous pentesting begins):**
