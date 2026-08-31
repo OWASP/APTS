@@ -452,10 +452,11 @@ The implementation separates output handling into two complementary mechanisms: 
 
 ```python
 import html
+import ipaddress
+import socket
+import subprocess
 from urllib.parse import urlparse
 from pydantic import BaseModel, field_validator
-import subprocess
-import shlex
 
 # 1. Data Deliverable Validation (Reporting, Exports, Webhooks)
 class FindingExportPayload(BaseModel):
@@ -473,12 +474,35 @@ class FindingExportPayload(BaseModel):
     @field_validator("target_url")
     @classmethod
     def validate_egress_url(cls, v: str) -> str:
-        """Prevent SSRF / Cloud Metadata endpoint poisoning in integrations and exports."""
+        """
+        Prevent SSRF / Cloud Metadata endpoint poisoning in integrations and exports.
+        Resolves hostnames to IP addresses and rejects private, loopback, link-local,
+        reserved, multicast, and provider-specific metadata destinations.
+        """
         parsed = urlparse(v)
         if parsed.scheme not in {"http", "https"}:
             raise ValueError(f"Disallowed URL scheme: {parsed.scheme}")
-        hostname = (parsed.hostname or "").lower()
-        if hostname in ["169.254.169.254", "localhost", "127.0.0.1"] or hostname.startswith("10.") or hostname.startswith("192.168."):
+        hostname = parsed.hostname or ""
+
+        # Parse direct IP or resolve hostname
+        try:
+            ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            try:
+                ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+            except socket.gaierror:
+                raise ValueError("Could not resolve egress destination")  # fail closed
+
+        # Block RFC 1918 private IPs, loopback, link-local (AWS/Azure/GCP 169.254.169.254, ECS 169.254.170.2),
+        # reserved, multicast, and Alibaba Cloud metadata (100.100.100.200)
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or str(ip) == "100.100.100.200"
+        ):
             raise ValueError("Forbidden internal or metadata egress destination")
         return v
 
@@ -512,12 +536,17 @@ def dispatch_synthesized_poc(
 - **Execution boundary takes precedence:** For synthesized PoC code, validation must occur at the final execution dispatch boundary. Metacharacter stripping or prompt-level instructions ("only generate safe commands") fail open against determined prompt injection. Array-based argument vectors (`shell=False`, distinct `argv` parameters) ensure shell metacharacters like `;`, `&`, `|`, `$()`, or `` ` `` cannot trigger command chaining.
 - **Context determines encoding:** A string that is safe for JSON export can be lethal when injected into an unescaped HTML report template or a markdown renderer supporting raw HTML. Apply encoding specific to the destination sink at the boundary where the sink is invoked.
 - **Isolate internal sinks:** Emitted data also flows backward into platform internals (finding scoring pipelines, structured audit trails, evidence stores). Validate and sanitize LLM output before passing it to internal sinks to prevent audit log injection (e.g., CRLF log splitting) or metric manipulation.
-- **Sandboxed presentation frames:** Web UI dashboards should render findings and PoC narratives within sandboxed frames (e.g., `iframe` with `sandbox="allow-same-origin"` or strict Content Security Policy disabling inline script execution).
+- **Sandboxed presentation frames:** Web UI dashboards should render findings and PoC narratives within sandboxed frames (e.g., `iframe` with `sandbox="allow-same-origin"` or strict Content Security Policy disabling inline script execution). **Security Warning:** Never combine `allow-same-origin` with `allow-scripts` on untrusted content frames; this combination allows sandboxed scripts to programmatically remove their own sandbox attribute and execute arbitrary script in the parent origin context.
+- **Egress SSRF, DNS resolution, and IP pinning:**
+  - *Blocking DNS resolver:* `socket.gethostbyname()` is a synchronous/blocking call; use an asynchronous DNS resolver (e.g., `asyncio.get_event_loop().getaddrinfo()`) if executing validation on asynchronous pipeline loops.
+  - *Time-of-Check to Time-of-Use (TOCTOU) & DNS Rebinding:* Per the OWASP SSRF Prevention Cheat Sheet, schema-level validation of resolved IPs does not guarantee that the HTTP client uses the same IP upon connection execution. Production implementations should pin the validated IP directly to the outbound socket connection (or use a dedicated egress proxy with strict IP-level filtering) rather than re-resolving hostnames at request time.
+  - *Cloud metadata coverage:* Link-local ranges (`169.254.0.0/16`) protect AWS, Azure, GCP, and OpenStack IMDS (`169.254.169.254`) and AWS ECS task metadata (`169.254.170.2`). Explicitly include provider-specific non-link-local metadata endpoints such as Alibaba Cloud (`100.100.100.200`) and GCP internal DNS (`metadata.google.internal`).
 
 **Common Pitfalls:**
 - **Relying on upstream sanitization for executable code:** Assuming that because MR-002 sanitized input data, the LLM's generated PoC script is safe to pass to `os.system()` or `sh -c`. The model itself can synthesize arbitrary payloads from indirect cues.
 - **Decoding after sanitizing:** Performing HTML entity encoding and subsequently running a formatting pass or template engine that decodes HTML entities before rendering.
-- **Overlooking webhook and export SSRF:** Exporting findings to customer issue trackers (Jira, GitHub Issues, Slack) where an LLM-injected webhook URL or markdown image tag targets internal services (`http://169.254.169.254/latest/meta-data/` or internal admin endpoints).
+- **Overlooking webhook and export SSRF:** Exporting findings to customer issue trackers (Jira, GitHub Issues, Slack) where an LLM-injected webhook URL or markdown image tag targets internal services (`http://169.254.169.254/latest/meta-data/`, `http://100.100.100.200/latest/meta-data/`, or internal admin endpoints).
+- **String-matching hostnames without IP resolution:** Filtering URLs by prefix string (e.g., checking for `"10."` or `"127.0.0.1"`) without resolving DNS or normalizing IP encodings, leaving the egress pipeline open to DNS rebinding, hex/decimal IP representations (`0x7f000001`, `2130706433`), IPv6 loopback (`[::1]`), and RFC 1918 `172.16.0.0/12` bypasses.
 
 ---
 
