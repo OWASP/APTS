@@ -44,7 +44,7 @@ APTS does not prescribe who performs the assessment. The choice of internal self
 | 7 | Third-Party & Supply Chain Trust | TP | 22 | AI providers, cloud dependencies, data handling, foundation model disclosure |
 | 8 | Reporting | RP | 15 | Finding validation, confidence scoring, coverage disclosure |
 
-**Total: 173 tier-required requirements** (Tier 1 + Tier 2 + Tier 3) across the eight domains. An additional **19 advisory practices** live exclusively in the [Advisory Requirements](appendix/Advisory_Requirements.md) appendix using the `APTS-<DOMAIN>-A0x` identifier pattern; advisory practices are not counted toward any tier and do not affect conformance.
+**Total: 173 tier-required requirements** (Tier 1 + Tier 2 + Tier 3) across the eight domains. An additional **20 advisory practices** live exclusively in the [Advisory Requirements](appendix/Advisory_Requirements.md) appendix using the `APTS-<DOMAIN>-A0x` identifier pattern; advisory practices are not counted toward any tier and do not affect conformance.
 
 ---
 
