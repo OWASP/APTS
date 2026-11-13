@@ -12,7 +12,7 @@ pitch: A governance standard for autonomous penetration testing platforms
 ![OWASP Logo](assets/images/OWASP_APTS_Logo.png)
 
 <p align="center">
-  <a href="https://owasp.org/APTS/"><img src="https://img.shields.io/badge/OWASP-Incubator%20Project-blue" alt="OWASP Incubator Project"></a>
+  <a href="https://owasp.org/projects/autonomous-penetration-testing-standard/"><img src="https://img.shields.io/badge/OWASP-Incubator%20Project-blue" alt="OWASP Incubator Project"></a>
   <a href="https://creativecommons.org/licenses/by-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg" alt="License: CC BY-SA 4.0"></a>
   <a href="https://github.com/OWASP/APTS"><img src="https://img.shields.io/badge/Version-0.1.0-green" alt="Version: 0.1.0"></a>
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen" alt="Contributions Welcome"></a>
